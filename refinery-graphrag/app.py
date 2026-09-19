@@ -64,6 +64,7 @@ class Config:
     UPLOAD_FOLDER: str = os.environ.get("UPLOAD_FOLDER", "./uploads")
     LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO")
     TESSERACT_PATH: str = os.environ.get("TESSERACT_PATH", _detect_tesseract())
+        CORS_ORIGINS: str = os.environ.get("CORS_ORIGINS", "*")
 
 
 # ============================================================================
@@ -156,7 +157,22 @@ class PIDKnowledgeGraph:
 # ============================================================================
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+app = Flask(__name__)
+
+cors_origins = [
+    origin.strip()
+    for origin in config.CORS_ORIGINS.split(",")
+    if origin.strip()
+]
+
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": cors_origins
+        }
+    }
+)
 
 os.makedirs(config.UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(config.DB_PATH, exist_ok=True)
