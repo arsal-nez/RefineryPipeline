@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart P&ID Query Engine</title>
+    <style>
+        /* ===================================== */
+        /* CSS VARIABLES - NASA INSPIRED THEME  */
+        /* ===================================== */
+        
+        :root {
+            --primary: #00d9ff;
+            --primary-dark: #0097a7;
+            --primary-light: #00e5ff;
+            --accent-purple: #6c5ce7;
+            --accent-orange: #ff6b35;
+            --accent-red: #ff3c41;
+            --accent-green: #2ecc71;
+            --bg-darkest: #0a0e27;
+            --bg-dark: #0f1525;
+            --bg-darker: #141b2f;
+            --bg-light: #1a2a45;
+            --text-primary: #e8f0ff;
+            --text-secondary: #a0b0d0;
+            --text-tertiary: #6b7a99;
+            --text-muted: #4a5568;
+            --border-glow: rgba(0, 217, 255, 0.3);
+            --border-color: rgba(0, 217, 255, 0.2);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+            --glow-blue: 0 0 20px rgba(0, 217, 255, 0.4);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        html, body {
+            width: 100%; height: 100%;
+            font-family: 'Segoe UI', 'Helvetica Neue', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-darkest); color: var(--text-primary);
+            overflow: hidden; letter-spacing: 0.5px;
+        }
+        
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 20% 50%, rgba(108, 92, 231, 0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(0, 217, 255, 0.06) 0%, transparent 50%);
+            pointer-events: none; z-index: -1;
+        }
+        
+        .container {
+            display: flex; height: 100vh; width: 100%; gap: 2px;
+            background: var(--bg-darker); padding: 12px;
+        }
+        
+        .panel {
+            display: flex; flex-direction: column; border: 1px solid var(--border-color);
+            border-radius: 12px; background: linear-gradient(135deg, var(--bg-dark) 0%, rgba(15, 21, 37, 0.8) 100%);
+            backdrop-filter: blur(10px); box-shadow: 0 0 30px var(--border-glow); overflow: hidden; flex: 1;
+        }
+        
+        .panel-header {
+            padding: 20px; background: linear-gradient(135deg, rgba(0, 217, 255, 0.1) 0%, rgba(108, 92, 231, 0.1) 100%);
+            border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;
+        }
+        
+        .panel-title { font-size: 18px; font-weight: 600; letter-spacing: 1px; color: var(--primary); text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+        .panel-icon { font-size: 24px; animation: float 3s ease-in-out infinite; }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        .panel-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 4px; letter-spacing: 0.5px; }
+        
+        .blueprint-viewer {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            padding: 30px; position: relative; overflow: hidden;
+        }
+        
+        .blueprint-container { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+        
+        .blueprint-image {
+            max-width: 100%; max-height: 100%; border-radius: 8px;
+            box-shadow: var(--shadow-lg), var(--glow-blue); border: 1px solid var(--border-color); display: none;
+        }
+        .blueprint-image.loaded { display: block; animation: slideInUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        
+        @keyframes slideInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .empty-state { text-align: center; color: var(--text-secondary); animation: fadeIn 0.8s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .empty-icon { font-size: 64px; margin-bottom: 20px; opacity: 0.6; }
+        .empty-text { font-size: 14px; line-height: 1.6; }
+        
+        .upload-area {
+            padding: 20px; border-top: 1px solid var(--border-color);
+            background: linear-gradient(135deg, rgba(0, 217, 255, 0.05) 0%, transparent 100%);
+            display: flex; justify-content: center; align-items: center;
+        }
+        
+        .upload-button {
+            width: 100%; padding: 14px 20px; background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+            color: var(--bg-darkest); border: 2px solid var(--primary); border-radius: 8px; font-weight: 600; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); text-transform: uppercase; font-size: 13px; letter-spacing: 1px;
+            box-shadow: 0 0 20px rgba(0, 217, 255, 0.3);
+        }
+        
+        .upload-button:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(0, 217, 255, 0.5), 0 8px 16px rgba(0, 0, 0, 0.3); }
+        .upload-button:active { transform: translateY(0); }
+        
+        .status-bar {
+            padding: 14px 20px; background: linear-gradient(135deg, rgba(108, 92, 231, 0.1) 0%, transparent 100%);
+            border-bottom: 1px solid var(--border-color); display: flex; gap: 20px; align-items: center; font-size: 12px; flex-wrap: wrap;
+        }
+        
+        .status-item {
+            display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+            background: rgba(0, 217, 255, 0.05); border-radius: 6px; border: 1px solid rgba(0, 217, 255, 0.1);
+        }
+        
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); animation: pulse 2s infinite; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--accent-green); }
+            50% { opacity: 0.5; box-shadow: 0 0 12px var(--accent-green); }
+        }
+        
+        .status-label { color: var(--text-secondary); font-weight: 500; }
+        .status-value { color: var(--primary); font-weight: 600; }
+        
+        .chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+        
+        .message { display: flex; gap: 12px; animation: messageSlide 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        
+        @keyframes messageSlide {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user { justify-content: flex-end; }
+        .message.user .message-content {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%); color: var(--bg-darkest);
+            border-radius: 12px 4px 12px 12px; box-shadow: 0 0 15px rgba(0, 217, 255, 0.3); max-width: 80%;
+        }
+        .message.assistant .message-content {
+            background: linear-gradient(135deg, rgba(0, 217, 255, 0.1) 0%, rgba(108, 92, 231, 0.08) 100%);
+            border: 1px solid var(--border-color); border-radius: 12px 12px 4px 12px; max-width: 85%;
+        }
+        
+        .message-content { padding: 12px 16px; line-height: 1.6; word-wrap: break-word; font-size: 14px; backdrop-filter: blur(10px); }
+        .message-time { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; padding: 0 4px; }
+        
+        .chat-input-container {
+            padding: 16px 20px; border-top: 1px solid var(--border-color);
+            background: linear-gradient(135deg, rgba(0, 217, 255, 0.05) 0%, transparent 100%); display: flex; gap: 12px; align-items: flex-end;
+        }
+        
+        .chat-input-field {
+            flex: 1; padding: 12px 16px; background: var(--bg-darker); color: var(--text-primary); border: 1px solid var(--border-color);
+            border-radius: 8px; font-size: 14px; resize: none; max-height: 100px; transition: all 0.3s ease; font-family: inherit;
+        }
+        .chat-input-field:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 15px rgba(0, 217, 255, 0.3); background: rgba(0, 217, 255, 0.03); }
+        
+        .chat-send-button {
+            padding: 12px 24px; background: linear-gradient(135deg, var(--accent-green) 0%, #27ae60 100%); color: white; border: none;
+            border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px; box-shadow: 0 0 15px rgba(46, 204, 113, 0.3); min-width: 100px;
+        }
+        .chat-send-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 25px rgba(46, 204, 113, 0.5), 0 8px 16px rgba(0, 0, 0, 0.3); }
+        
+        .loading-spinner { display: flex; gap: 4px; align-items: center; }
+        .dot { width: 6px; height: 6px; background: var(--primary); border-radius: 50%; animation: bounce 1.4s infinite; }
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce { 0%, 80%, 100% { opacity: 0.5; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-8px); } }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 217, 255, 0.05); }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--primary) 0%, var(--accent-purple) 100%); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <div class="panel-title"><span class="panel-icon">🔧</span>P&ID Blueprint Viewer</div>
+                    <div class="panel-subtitle">Upload and analyze piping diagrams</div>
+                </div>
+            </div>
+            <div class="blueprint-viewer">
+                <div class="blueprint-container">
+                    <img id="blueprintImage" class="blueprint-image" />
+                    <div class="empty-state" id="emptyState">
+                        <div class="empty-icon">📐</div>
+                        <div class="empty-text">
+                            <p>No blueprint uploaded</p>
+                            <p style="opacity: 0.6; margin-top: 8px; font-size: 12px;">Upload a P&ID image to get started</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="upload-area">
+                <input type="file" id="blueprintInput" accept="image/*" style="display: none;">
+                <button class="upload-button" id="triggerUploadBtn">📤 Upload Blueprint</button>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <div class="panel-title"><span class="panel-icon">💬</span>Smart Query Engine</div>
+                    <div class="panel-subtitle">Ask about equipment, procedures, and specifications</div>
+                </div>
+            </div>
+            <div class="status-bar">
+                <div class="status-item"><span class="status-dot"></span><span class="status-label">Status:</span><span class="status-value" id="statusText">Connecting...</span></div>
+                <div class="status-item"><span class="status-label">Documents:</span><span class="status-value" id="docCount">0</span></div>
+                <div class="status-item"><span class="status-label">Equipment:</span><span class="status-value" id="equipmentCount">0</span></div>
+            </div>
+            <div class="chat-history" id="chatHistory"></div>
+            <div class="chat-input-container">
+                <input type="text" class="chat-input-field" id="chatInput" placeholder="Ask about equipment..." autocomplete="off" />
+                <button class="chat-send-button" id="chatSendButton"><span>Send</span></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        let blueprintTags = [];
+        let isLoading = false;
+        
+        async function initialize() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                updateStatus('Online', true);
+                await loadDemoSOP();
+            } catch (error) {
+                updateStatus('Offline', false);
+            }
+        }
+        
+        async function loadDemoSOP() {
+            try {
+                const response = await fetch(`${API_BASE}/demo-setup`);
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('docCount').textContent = data.chunks;
+                    addMessage('assistant', `✓ Demo SOP loaded with ${data.chunks} knowledge chunks. Ready!`);
+                }
+            } catch (error) {
+                console.error('Demo setup failed:', error);
+            }
+        }
+        
+        function updateStatus(text, isOnline) {
+            document.getElementById('statusText').textContent = text;
+        }
+        
+        // 🚀 FIX: Event listener to trigger file input
+        document.getElementById('triggerUploadBtn').addEventListener('click', () => {
+            document.getElementById('blueprintInput').click();
+        });
+        
+        document.getElementById('blueprintInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                updateStatus('Processing blueprint...', true);
+                
+                const response = await fetch(`${API_BASE}/upload-blueprint`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    blueprintTags = data.tags;
+                    const img = document.getElementById('blueprintImage');
+                    img.src = `data:image/png;base64,${data.annotated_image}`;
+                    img.classList.add('loaded');
+                    document.getElementById('emptyState').style.display = 'none';
+                    
+                    document.getElementById('equipmentCount').textContent = data.total_equipment;
+                    updateStatus('Blueprint analyzed', true);
+                    
+                    addMessage('assistant', `✓ Blueprint processed! Found ${data.total_equipment} equipment tags.`);
+                } else {
+                    alert('Error: ' + data.error);
+                    updateStatus('Upload failed', false);
+                }
+            } catch (error) {
+                updateStatus('Upload failed', false);
+            }
+        });
+        
+        document.getElementById('chatSendButton').addEventListener('click', sendMessage);
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+
+            if (!message || isLoading) return;
+
+            isLoading = true;
+            addMessage('user', message);
+            input.value = '';
+
+            // Pre-create the assistant bubble (starts empty — will be filled)
+            const loadingId = addMessage('assistant', '<div class="loading-spinner"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>');
+
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: message })
+                });
+
+                const contentType = response.headers.get('Content-Type') || '';
+
+                // ── STREAMING PATH: text model sends Server-Sent Events ──────────
+                if (contentType.includes('text/event-stream')) {
+                    document.getElementById(loadingId).remove();
+                    const streamId = addMessage('assistant', '');
+                    const contentDiv = document.querySelector('#' + streamId + ' .message-content');
+                    let fullText = '';
+                    let sseBuffer = '';
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        sseBuffer += decoder.decode(value, { stream: true });
+                        const lines = sseBuffer.split('\n');
+                        sseBuffer = lines.pop(); // keep incomplete final line
+
+                        for (const line of lines) {
+                            if (!line.startsWith('data:')) continue;
+                            try {
+                                const evt = JSON.parse(line.slice(5).trim());
+                                if (evt.type === 'token') {
+                                    fullText += evt.token;
+                                    contentDiv.innerHTML = fullText.replace(/\n/g, '<br>');
+                                    document.getElementById('chatHistory').scrollTop =
+                                        document.getElementById('chatHistory').scrollHeight;
+                                } else if (evt.type === 'done') {
+                                    // streaming finished — nothing extra to do
+                                } else if (evt.type === 'meta') {
+                                    // append sources/location footer after tokens finish
+                                    if (evt.equipment_location)
+                                        fullText += '\n\n📍 Equipment: ' + evt.equipment_location.id;
+                                    if (evt.sources && evt.sources.length > 0)
+                                        fullText += '\n\n📚 Sources: ' + evt.sources.join(', ');
+                                }
+                            } catch (_) { /* skip malformed SSE lines */ }
+                        }
+                    }
+                    // Final render after all events
+                    contentDiv.innerHTML = fullText.replace(/\n/g, '<br>');
+
+                // ── NON-STREAMING PATH: JSON (vision model or casual chat) ────────
+                } else {
+                    const data = await response.json();
+                    document.getElementById(loadingId).remove();
+                    if (data.success) {
+                        let answer = data.answer;
+                        if (data.equipment_location) answer += '\n\n📍 Equipment: ' + data.equipment_location.id;
+                        if (data.sources && data.sources.length > 0) answer += '\n\n📚 Sources: ' + data.sources.join(', ');
+                        addMessage('assistant', answer);
+                    } else {
+                        const errorMessage = data.error || data.answer || 'No relevant documents found. Please load demo data first.';
+                        addMessage('assistant', '⚠️ ' + errorMessage);
+                    }
+                }
+
+            } catch (error) {
+                document.getElementById(loadingId) && document.getElementById(loadingId).remove();
+                addMessage('assistant', '❌ Connection error: ' + error.message);
+            } finally {
+                isLoading = false;
+            }
+        }
+        
+        function addMessage(role, content) {
+            const chatHistory = document.getElementById('chatHistory');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            messageDiv.id = `msg-${Date.now()}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.innerHTML = content.replace(/\n/g, '<br>');
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date().toLocaleTimeString();
+            
+            messageDiv.appendChild(contentDiv);
+            messageDiv.appendChild(timeDiv);
+            chatHistory.appendChild(messageDiv);
+            
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            return messageDiv.id;
+        }
+        
+        initialize();
+    </script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.Python
+
+# Virtual environment
+venv/
+env/
+.env/
+
+# Logs
+*.log
+pid_engine.log
+
+# ChromaDB vector store (auto-generated at runtime)
+chroma_db/
+
+# Uploaded files (user data, not code)
+uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
